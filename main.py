@@ -6,6 +6,18 @@ Analyse your Instagram following/followers data and optionally unfollow
 accounts that don't follow you back.
 
 Usage:
+  main.py analyse --export-dir DIR [--export-csv]
+  main.py unfollow (--export-dir DIR | --list FILE) [--dry-run] [--export-csv]
+  main.py (-h | --help)
+
+Options:
+  --export-dir DIR  Path to your Instagram data export directory.
+  --list FILE       Text file with one username per line to unfollow.
+  --export-csv      Save results to CSV files in the reports/ directory.
+  --dry-run         Show what would be unfollowed without making any changes.
+  -h --help         Show this screen.
+
+Examples:
   # Analyse only (no login required)
   python main.py analyse --export-dir ./instagram_export
 
@@ -22,12 +34,12 @@ Usage:
   python main.py unfollow --export-dir ./instagram_export --dry-run
 """
 
-import argparse
 import logging
 import os
 import sys
 from pathlib import Path
 
+from docopt import docopt
 from dotenv import load_dotenv
 
 from instagram.parser import load_following, load_followers, compute_non_followers
@@ -47,10 +59,10 @@ logger = logging.getLogger(__name__)
 # Subcommand: analyse
 # ---------------------------------------------------------------------------
 
-def cmd_analyse(args: argparse.Namespace) -> None:
-    print(f"Loading data from: {args.export_dir}")
-    following = load_following(args.export_dir)
-    followers = load_followers(args.export_dir)
+def cmd_analyse(args: dict) -> None:
+    print(f"Loading data from: {args['--export-dir']}")
+    following = load_following(args['--export-dir'])
+    followers = load_followers(args['--export-dir'])
     non_followers = compute_non_followers(following, followers)
 
     print_summary(following, followers, non_followers)
@@ -60,7 +72,7 @@ def cmd_analyse(args: argparse.Namespace) -> None:
         for i, account in enumerate(non_followers, 1):
             print(f"  {i:3}. @{account.username}")
 
-    if args.export_csv:
+    if args['--export-csv']:
         from datetime import datetime
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         path = export_csv(following, f"following_{ts}.csv")
@@ -73,10 +85,10 @@ def cmd_analyse(args: argparse.Namespace) -> None:
 # Subcommand: unfollow
 # ---------------------------------------------------------------------------
 
-def cmd_unfollow(args: argparse.Namespace) -> None:
+def cmd_unfollow(args: dict) -> None:
     # Build the target list
-    if args.list:
-        list_path = Path(args.list)
+    if args['--list']:
+        list_path = Path(args['--list'])
         if not list_path.exists():
             sys.exit(f"Error: file not found: {list_path}")
         usernames = [
@@ -84,10 +96,10 @@ def cmd_unfollow(args: argparse.Namespace) -> None:
             for line in list_path.read_text().splitlines()
             if line.strip() and not line.startswith("#")
         ]
-    elif args.export_dir:
-        print(f"Loading data from: {args.export_dir}")
-        following = load_following(args.export_dir)
-        followers = load_followers(args.export_dir)
+    elif args['--export-dir']:
+        print(f"Loading data from: {args['--export-dir']}")
+        following = load_following(args['--export-dir'])
+        followers = load_followers(args['--export-dir'])
         non_followers = compute_non_followers(following, followers)
         print_summary(following, followers, non_followers)
 
@@ -104,7 +116,7 @@ def cmd_unfollow(args: argparse.Namespace) -> None:
         print("No accounts to unfollow.")
         return
 
-    if args.dry_run:
+    if args['--dry-run']:
         print(f"\n[DRY RUN] Would unfollow {len(usernames)} account(s):")
         for u in usernames:
             print(f"  @{u}")
@@ -143,71 +155,21 @@ def cmd_unfollow(args: argparse.Namespace) -> None:
     errors = sum(1 for s in results.values() if s.startswith("error"))
     print(f"\nDone. Unfollowed: {ok}  Skipped (not found): {skipped}  Errors: {errors}")
 
-    if args.export_csv:
+    if args['--export-csv']:
         path = export_unfollow_results(results)
         print(f"Results saved to: {path}")
 
 
 # ---------------------------------------------------------------------------
-# Argument parser
+# Entry point
 # ---------------------------------------------------------------------------
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Manage your Instagram following list.",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=__doc__,
-    )
-    sub = parser.add_subparsers(dest="command", required=True)
-
-    # --- analyse ---
-    p_analyse = sub.add_parser("analyse", help="Analyse following vs followers.")
-    p_analyse.add_argument(
-        "--export-dir",
-        required=True,
-        metavar="DIR",
-        help="Path to your Instagram data export directory.",
-    )
-    p_analyse.add_argument(
-        "--export-csv",
-        action="store_true",
-        help="Save results to CSV files in the reports/ directory.",
-    )
-
-    # --- unfollow ---
-    p_unfollow = sub.add_parser("unfollow", help="Unfollow accounts.")
-    source = p_unfollow.add_mutually_exclusive_group()
-    source.add_argument(
-        "--export-dir",
-        metavar="DIR",
-        help="Path to your Instagram data export; unfollows non-followers.",
-    )
-    source.add_argument(
-        "--list",
-        metavar="FILE",
-        help="Text file with one username per line to unfollow.",
-    )
-    p_unfollow.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Show what would be unfollowed without making any changes.",
-    )
-    p_unfollow.add_argument(
-        "--export-csv",
-        action="store_true",
-        help="Save unfollow results to a CSV file.",
-    )
-
-    return parser
-
-
 def main() -> None:
-    parser = build_parser()
-    args = parser.parse_args()
+    args = docopt(__doc__)
 
-    if args.command == "analyse":
+    if args['analyse']:
         cmd_analyse(args)
-    elif args.command == "unfollow":
+    elif args['unfollow']:
         cmd_unfollow(args)
 
 
