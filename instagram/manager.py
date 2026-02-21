@@ -33,6 +33,8 @@ MIN_DELAY_SECONDS = 20
 MAX_DELAY_SECONDS = 45
 BATCH_SIZE = 10          # pause after every N unfollows
 BATCH_PAUSE_SECONDS = 300  # 5 minutes between batches
+ENRICH_MIN_DELAY_SECONDS = 2
+ENRICH_MAX_DELAY_SECONDS = 5
 
 
 def _require_login(method):
@@ -135,7 +137,7 @@ class InstagramManager:
                 logger.warning("Error enriching @%s: %s", account.username, e)
 
             if i + 1 < total:
-                time.sleep(random.uniform(2, 5))
+                time.sleep(random.uniform(ENRICH_MIN_DELAY_SECONDS, ENRICH_MAX_DELAY_SECONDS))
 
     # ------------------------------------------------------------------
     # Unfollow
