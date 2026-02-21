@@ -21,6 +21,8 @@ from instagrapi.exceptions import (
     UserNotFound,
 )
 
+from .parser import Account
+
 logger = logging.getLogger(__name__)
 
 SESSION_FILE = Path("session.json")
@@ -100,6 +102,40 @@ class InstagramManager:
             return user.pk
         except UserNotFound:
             raise ValueError(f"User not found: @{username}")
+
+    @_require_login
+    def enrich_accounts(
+        self,
+        accounts: list[Account],
+        progress_callback=None,
+    ) -> None:
+        """
+        Enrich Account objects in-place with live profile data.
+
+        Fetches biography, is_business flag, and last post date for each account.
+        Applies a short delay between requests to avoid rate-limiting.
+
+        Args:
+            accounts:          List of Account objects to enrich.
+            progress_callback: Optional callable(username, index, total).
+        """
+        total = len(accounts)
+        for i, account in enumerate(accounts):
+            if progress_callback:
+                progress_callback(account.username, i, total)
+            try:
+                user = self.client.user_info_by_username(account.username)
+                account.biography = user.biography or ""
+                account.is_business = user.is_business
+                medias = self.client.user_medias(user.pk, amount=1)
+                account.last_post_at = medias[0].taken_at if medias else None
+            except UserNotFound:
+                logger.warning("Skipped @%s — account not found.", account.username)
+            except ClientError as e:
+                logger.warning("Error enriching @%s: %s", account.username, e)
+
+            if i + 1 < total:
+                time.sleep(random.uniform(2, 5))
 
     # ------------------------------------------------------------------
     # Unfollow
