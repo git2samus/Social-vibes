@@ -3,6 +3,8 @@ Generate CSV reports from parsed Instagram data.
 """
 
 import csv
+import functools
+import inspect
 import os
 from datetime import datetime
 from pathlib import Path
@@ -10,11 +12,20 @@ from pathlib import Path
 from .parser import Account
 
 
-def _ensure_reports_dir(output_dir: Path) -> Path:
-    output_dir.mkdir(parents=True, exist_ok=True)
-    return output_dir
+def _ensure_reports_dir(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        sig = inspect.signature(func)
+        bound = sig.bind(*args, **kwargs)
+        bound.apply_defaults()
+        output_dir = Path(bound.arguments["output_dir"])
+        output_dir.mkdir(parents=True, exist_ok=True)
+        bound.arguments["output_dir"] = output_dir
+        return func(*bound.args, **bound.kwargs)
+    return wrapper
 
 
+@_ensure_reports_dir
 def export_csv(
     accounts: list[Account],
     filename: str,
@@ -31,8 +42,6 @@ def export_csv(
     Returns:
         Path to the written CSV file.
     """
-    output_dir = Path(output_dir)
-    _ensure_reports_dir(output_dir)
     path = output_dir / filename
 
     with open(path, "w", newline="", encoding="utf-8") as f:
@@ -52,6 +61,7 @@ def export_csv(
     return path
 
 
+@_ensure_reports_dir
 def export_unfollow_results(
     results: dict[str, str],
     output_dir: str | Path = "reports",
@@ -66,8 +76,6 @@ def export_unfollow_results(
     Returns:
         Path to the written CSV file.
     """
-    output_dir = Path(output_dir)
-    _ensure_reports_dir(output_dir)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     path = output_dir / f"unfollow_results_{timestamp}.csv"
 
