@@ -109,5 +109,9 @@ Social-vibes/
 │   ├── parser.py            # Parse Instagram data export JSON
 │   ├── manager.py           # instagrapi login + unfollow actions
 │   └── reporter.py          # CSV export and summary printing
+├── .claude/
+│   ├── settings.json        # Claude Code hooks configuration
+│   └── hooks/
+│       └── session-start.sh # Installs gh CLI on session start
 └── reports/                 # Generated CSV files (git-ignored)
 ```
