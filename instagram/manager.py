@@ -5,6 +5,7 @@ Handles login (with session persistence and optional 2FA), and provides
 controlled unfollow functionality with rate-limiting to reduce ban risk.
 """
 
+import functools
 import json
 import os
 import time
@@ -30,6 +31,15 @@ MIN_DELAY_SECONDS = 20
 MAX_DELAY_SECONDS = 45
 BATCH_SIZE = 10          # pause after every N unfollows
 BATCH_PAUSE_SECONDS = 300  # 5 minutes between batches
+
+
+def _require_login(method):
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        if not self._logged_in:
+            raise RuntimeError("Not logged in. Call login() first.")
+        return method(self, *args, **kwargs)
+    return wrapper
 
 
 class InstagramManager:
@@ -78,17 +88,13 @@ class InstagramManager:
         self._logged_in = True
         logger.info("Logged in and session saved to %s", SESSION_FILE)
 
-    def _ensure_logged_in(self) -> None:
-        if not self._logged_in:
-            raise RuntimeError("Not logged in. Call login() first.")
-
     # ------------------------------------------------------------------
     # Read operations
     # ------------------------------------------------------------------
 
+    @_require_login
     def get_user_id(self, username: str) -> int:
         """Resolve a username to its numeric Instagram user ID."""
-        self._ensure_logged_in()
         try:
             user = self.client.user_info_by_username(username)
             return user.pk
@@ -99,13 +105,13 @@ class InstagramManager:
     # Unfollow
     # ------------------------------------------------------------------
 
+    @_require_login
     def unfollow(self, username: str) -> bool:
         """
         Unfollow a single account by username.
 
         Returns True on success, False if the account was not found.
         """
-        self._ensure_logged_in()
         try:
             user_id = self.get_user_id(username)
             self.client.user_unfollow(user_id)
@@ -118,6 +124,7 @@ class InstagramManager:
             logger.error("Error unfollowing @%s: %s", username, e)
             raise
 
+    @_require_login
     def unfollow_batch(
         self,
         usernames: list[str],
@@ -135,7 +142,6 @@ class InstagramManager:
         Returns:
             Dict mapping username -> status ("ok", "not_found", "error", "dry_run").
         """
-        self._ensure_logged_in()
         results: dict[str, str] = {}
         total = len(usernames)
 
