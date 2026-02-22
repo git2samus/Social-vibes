@@ -6,7 +6,7 @@ Analyse your Instagram following/followers data and optionally unfollow
 accounts that don't follow you back.
 
 Usage:
-  main.py analyse --export-dir DIR [--export-csv]
+  main.py analyse --export-dir DIR [--export-csv] [--enrich]
   main.py unfollow (--export-dir DIR | --list FILE) [--dry-run] [--export-csv]
   main.py (-h | --help)
 
@@ -14,6 +14,9 @@ Options:
   --export-dir DIR  Path to your Instagram data export directory.
   --list FILE       Text file with one username per line to unfollow.
   --export-csv      Save results to CSV files in the reports/ directory.
+  --enrich          Fetch extra profile data (bio, is_business, last post date)
+                    for non-followers via the Instagram API. Requires credentials
+                    (INSTAGRAM_USERNAME / INSTAGRAM_PASSWORD env vars or prompt).
   --dry-run         Show what would be unfollowed without making any changes.
   -h --help         Show this screen.
 
@@ -71,6 +74,25 @@ def cmd_analyse(args: dict) -> None:
         print("Accounts you follow that don't follow back:")
         for i, account in enumerate(non_followers, 1):
             print(f"  {i:3}. @{account.username}")
+
+    if args['--enrich'] and non_followers:
+        ig_username = os.environ.get("INSTAGRAM_USERNAME") or input("Instagram username: ").strip()
+        ig_password = os.environ.get("INSTAGRAM_PASSWORD") or input("Instagram password: ").strip()
+        totp_secret = os.environ.get("INSTAGRAM_TOTP_SECRET") or None
+
+        from instagram.manager import InstagramManager
+        manager = InstagramManager(ig_username, ig_password, totp_secret)
+
+        print("Logging in to fetch profile data...")
+        manager.login()
+
+        print(f"\nEnriching {len(non_followers)} non-follower account(s)...")
+
+        def enrich_progress(uname, idx, total):
+            print(f"  [{idx + 1}/{total}] Fetching @{uname}...")
+
+        manager.enrich_accounts(non_followers, progress_callback=enrich_progress)
+        print()
 
     if args['--export-csv']:
         from datetime import datetime

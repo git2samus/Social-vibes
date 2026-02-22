@@ -22,6 +22,9 @@ class Account:
     username: str
     profile_url: str
     followed_at: datetime | None
+    last_post_at: datetime | None = None
+    biography: str = ""
+    is_business: bool | None = None
 
 
 def _extract_accounts(data: list[dict]) -> list[Account]:

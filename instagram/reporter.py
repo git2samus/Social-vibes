@@ -25,6 +25,16 @@ def _ensure_reports_dir(func):
     return wrapper
 
 
+_ACCOUNT_FIELDS = [
+    "username",
+    "profile_url",
+    "followed_at",
+    "last_post_at",
+    "biography",
+    "is_business",
+]
+
+
 @_ensure_reports_dir
 def export_csv(
     accounts: list[Account],
@@ -45,16 +55,17 @@ def export_csv(
     path = output_dir / filename
 
     with open(path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=["username", "profile_url", "followed_at"])
+        writer = csv.DictWriter(f, fieldnames=_ACCOUNT_FIELDS)
         writer.writeheader()
         for account in accounts:
             writer.writerow(
                 {
                     "username": account.username,
                     "profile_url": account.profile_url,
-                    "followed_at": (
-                        account.followed_at.isoformat() if account.followed_at else ""
-                    ),
+                    "followed_at": account.followed_at.isoformat() if account.followed_at else "",
+                    "last_post_at": account.last_post_at.isoformat() if account.last_post_at else "",
+                    "biography": account.biography,
+                    "is_business": "" if account.is_business is None else str(account.is_business),
                 }
             )
 
