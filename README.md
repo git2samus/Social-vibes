@@ -33,9 +33,11 @@ cp .env.example .env
 
 ### 3. Get your Instagram data export
 
-1. Open Instagram → **Settings** → **Your activity** → **Download your information**
-2. Select **JSON** format, request your data
-3. Once downloaded, unzip it — you'll use that folder as `--export-dir`
+1. Go to [https://accountscenter.instagram.com/info_and_permissions/dyi/](https://accountscenter.instagram.com/info_and_permissions/dyi/)
+   (**Accounts Center → Your information and permissions → Export your information**)
+2. Click **Customize information** and select **Followers and following**
+3. Switch the format to **JSON**, then request your download
+4. Once downloaded, unzip it — you'll use that folder as `--export-dir`
 
 ---
 
