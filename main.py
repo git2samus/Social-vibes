@@ -15,8 +15,9 @@ Options:
   --list FILE       Text file with one username per line to unfollow.
   --export-csv      Save results to CSV files in the reports/ directory.
   --enrich          Fetch extra profile data (bio, is_business, last post date)
-                    for non-followers via the Instagram API. Requires credentials
-                    (INSTAGRAM_USERNAME / INSTAGRAM_PASSWORD env vars or prompt).
+                    for everyone you follow via the Instagram API. Requires
+                    credentials (INSTAGRAM_USERNAME / INSTAGRAM_PASSWORD env vars
+                    or prompt).
   --dry-run         Show what would be unfollowed without making any changes.
   --sample N        Only process the first N accounts (useful for quick tests).
   -h --help         Show this screen.
@@ -75,17 +76,12 @@ def cmd_analyse(args: dict) -> None:
 
     print_summary(following, followers, non_followers)
 
-    if args['--sample']:
-        n = int(args['--sample'])
-        non_followers = non_followers[:n]
-        print(f"(Sampling first {n} non-followers)")
-
     if non_followers:
         print("Accounts you follow that don't follow back:")
         for i, account in enumerate(non_followers, 1):
             print(f"  {i:3}. @{account.username}")
 
-    if args['--enrich'] and non_followers:
+    if args['--enrich'] and following:
         ig_username = os.environ.get("INSTAGRAM_USERNAME") or input("Instagram username: ").strip()
         ig_password = os.environ.get("INSTAGRAM_PASSWORD") or input("Instagram password: ").strip()
         totp_secret = os.environ.get("INSTAGRAM_TOTP_SECRET") or None
@@ -96,12 +92,18 @@ def cmd_analyse(args: dict) -> None:
         print("Logging in to fetch profile data...")
         manager.login()
 
-        print(f"\nEnriching {len(non_followers)} non-follower account(s)...")
+        enrich_target = following
+        if args['--sample']:
+            n = int(args['--sample'])
+            enrich_target = enrich_target[:n]
+            print(f"(Sampling first {n} following accounts)")
+
+        print(f"\nEnriching {len(enrich_target)} following account(s)...")
 
         def enrich_progress(uname, idx, total):
             print(f"  [{idx + 1}/{total}] Fetching @{uname}...")
 
-        manager.enrich_accounts(non_followers, progress_callback=enrich_progress)
+        manager.enrich_accounts(enrich_target, progress_callback=enrich_progress)
         print()
 
     if args['--export-csv']:
