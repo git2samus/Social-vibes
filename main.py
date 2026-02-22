@@ -6,8 +6,8 @@ Analyse your Instagram following/followers data and optionally unfollow
 accounts that don't follow you back.
 
 Usage:
-  main.py analyse --export-dir DIR [--export-csv] [--enrich]
-  main.py unfollow (--export-dir DIR | --list FILE) [--dry-run] [--export-csv]
+  main.py analyse --export-dir DIR [--export-csv] [--enrich] [--sample N]
+  main.py unfollow (--export-dir DIR | --list FILE) [--dry-run] [--export-csv] [--sample N]
   main.py (-h | --help)
 
 Options:
@@ -18,6 +18,7 @@ Options:
                     for non-followers via the Instagram API. Requires credentials
                     (INSTAGRAM_USERNAME / INSTAGRAM_PASSWORD env vars or prompt).
   --dry-run         Show what would be unfollowed without making any changes.
+  --sample N        Only process the first N accounts (useful for quick tests).
   -h --help         Show this screen.
 
 Examples:
@@ -35,6 +36,10 @@ Examples:
 
   # Dry run (shows what would be unfollowed, no actual requests)
   python main.py unfollow --export-dir ./instagram_export --dry-run
+
+  # Quick test on just 5 accounts
+  python main.py analyse --export-dir ./instagram_export --enrich --sample 5
+  python main.py unfollow --export-dir ./instagram_export --dry-run --sample 5
 """
 
 import logging
@@ -69,6 +74,11 @@ def cmd_analyse(args: dict) -> None:
     non_followers = compute_non_followers(following, followers)
 
     print_summary(following, followers, non_followers)
+
+    if args['--sample']:
+        n = int(args['--sample'])
+        non_followers = non_followers[:n]
+        print(f"(Sampling first {n} non-followers)")
 
     if non_followers:
         print("Accounts you follow that don't follow back:")
@@ -133,6 +143,11 @@ def cmd_unfollow(args: dict) -> None:
         usernames = [a.username for a in non_followers]
     else:
         sys.exit("Error: provide --export-dir or --list.")
+
+    if args['--sample']:
+        n = int(args['--sample'])
+        usernames = usernames[:n]
+        print(f"(Sampling first {n} accounts)")
 
     if not usernames:
         print("No accounts to unfollow.")
