@@ -31,9 +31,9 @@ def _extract_accounts(data: list[dict]) -> list[Account]:
     """Extract accounts from the Instagram export JSON structure."""
     accounts = []
     for entry in data:
+        username = entry.get("title", "")
         string_list = entry.get("string_list_data", [])
         for item in string_list:
-            username = item.get("value", "")
             href = item.get("href", "")
             timestamp = item.get("timestamp")
             if username:
