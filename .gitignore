@@ -5,6 +5,9 @@
 # Instagram session (contains auth tokens)
 session.json
 
+# Playwright persistent browser profile (contains auth cookies)
+browser_profile/
+
 # Instagram data export files (may contain personal data)
 instagram_export/
 
