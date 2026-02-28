@@ -1,6 +1,6 @@
 # Social-vibes — Instagram Following Manager
 
-A Python CLI tool to analyse your Instagram following/followers lists and
+A Python CLI tool to analyze your Instagram following/followers lists and
 unfollow accounts that don't follow you back.
 
 **Data sources used:**
@@ -46,7 +46,7 @@ cp .env.example .env
 ### Analyse your following/followers
 
 ```bash
-python3 main.py analyse --export-dir ./instagram_export
+python3 main.py analyze --export-dir ./instagram_export
 ```
 
 This shows how many people you follow vs. how many follow you back, and lists
@@ -55,7 +55,7 @@ accounts that don't follow you back.
 **Export to CSV:**
 
 ```bash
-python3 main.py analyse --export-dir ./instagram_export --export-csv
+python3 main.py analyze --export-dir ./instagram_export --export-csv
 # Writes reports/following_<timestamp>.csv and reports/non_followers_<timestamp>.csv
 ```
 
@@ -65,13 +65,13 @@ Fetches bio, account type (personal/business), and last post date for every
 account you follow. Requires Instagram credentials.
 
 ```bash
-python3 main.py analyse --export-dir ./instagram_export --enrich
+python3 main.py analyze --export-dir ./instagram_export --enrich
 
 # Quick test on just 5 accounts
-python3 main.py analyse --export-dir ./instagram_export --enrich --sample 5
+python3 main.py analyze --export-dir ./instagram_export --enrich --sample 5
 
 # Enrich and export to CSV
-python3 main.py analyse --export-dir ./instagram_export --enrich --export-csv
+python3 main.py analyze --export-dir ./instagram_export --enrich --export-csv
 ```
 
 ### Unfollow non-followers
