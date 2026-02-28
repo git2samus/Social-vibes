@@ -15,9 +15,9 @@ Options:
   --list FILE       Text file with one username per line to unfollow.
   --export-csv      Save results to CSV files in the reports/ directory.
   --enrich          Fetch extra profile data (bio, is_business, last post date)
-                    for everyone you follow via the Instagram API. Requires
-                    credentials (INSTAGRAM_USERNAME / INSTAGRAM_PASSWORD env vars
-                    or prompt).
+                    for everyone you follow by opening a real browser session.
+                    A Chromium window will open; log in once and the session is
+                    saved for future runs.
   --dry-run         Show what would be unfollowed without making any changes.
   --sample N        Only process the first N accounts (useful for quick tests).
   -h --help         Show this screen.
@@ -44,7 +44,6 @@ Examples:
 """
 
 import logging
-import os
 import sys
 from pathlib import Path
 
@@ -82,15 +81,7 @@ def cmd_analyse(args: dict) -> None:
             print(f"  {i:3}. @{account.username}")
 
     if args['--enrich'] and following:
-        ig_username = os.environ.get("INSTAGRAM_USERNAME") or input("Instagram username: ").strip()
-        ig_password = os.environ.get("INSTAGRAM_PASSWORD") or input("Instagram password: ").strip()
-        totp_secret = os.environ.get("INSTAGRAM_TOTP_SECRET") or None
-
-        from instagram.manager import InstagramManager
-        manager = InstagramManager(ig_username, ig_password, totp_secret)
-
-        print("Logging in to fetch profile data...")
-        manager.login()
+        from instagram.browser_manager import BrowserManager
 
         enrich_target = following
         if args['--sample']:
@@ -103,7 +94,10 @@ def cmd_analyse(args: dict) -> None:
         def enrich_progress(uname, idx, total):
             print(f"  [{idx + 1}/{total}] Fetching @{uname}...")
 
-        manager.enrich_accounts(enrich_target, progress_callback=enrich_progress)
+        print("Opening browser...")
+        with BrowserManager() as manager:
+            manager.login()
+            manager.enrich_accounts(enrich_target, progress_callback=enrich_progress)
         print()
 
     if args['--export-csv']:
@@ -163,30 +157,24 @@ def cmd_unfollow(args: dict) -> None:
 
     # Confirm before proceeding
     print(f"\nAbout to unfollow {len(usernames)} account(s).")
-    print("NOTE: This uses conservative rate limiting (20-45s between unfollows)")
+    print("NOTE: Uses conservative rate limiting (20-45s between unfollows)")
     print("      to reduce the risk of your account being flagged.")
     confirm = input("Continue? [y/N] ").strip().lower()
     if confirm != "y":
         print("Aborted.")
         return
 
-    # Login
-    username = os.environ.get("INSTAGRAM_USERNAME") or input("Instagram username: ").strip()
-    password = os.environ.get("INSTAGRAM_PASSWORD") or input("Instagram password: ").strip()
-    totp_secret = os.environ.get("INSTAGRAM_TOTP_SECRET") or None
-
-    from instagram.manager import InstagramManager
-    manager = InstagramManager(username, password, totp_secret)
-
-    print("Logging in...")
-    manager.login()
+    from instagram.browser_manager import BrowserManager
 
     def progress(uname, status, idx, total):
         icon = {"ok": "✓", "not_found": "?", "error": "✗", "dry_run": "~"}.get(status, " ")
         print(f"  [{idx+1}/{total}] {icon} @{uname} — {status}")
 
-    print(f"\nUnfollowing {len(usernames)} account(s)...\n")
-    results = manager.unfollow_batch(usernames, dry_run=False, progress_callback=progress)
+    print("Opening browser...")
+    with BrowserManager() as manager:
+        manager.login()
+        print(f"\nUnfollowing {len(usernames)} account(s)...\n")
+        results = manager.unfollow_batch(usernames, dry_run=False, progress_callback=progress)
 
     # Summary
     ok = sum(1 for s in results.values() if s == "ok")
