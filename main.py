@@ -2,11 +2,11 @@
 """
 Instagram Following Manager
 ----------------------------
-Analyse your Instagram following/followers data and optionally unfollow
+Analyze your Instagram following/followers data and optionally unfollow
 accounts that don't follow you back.
 
 Usage:
-  main.py analyse --export-dir DIR [--export-csv] [--enrich] [--sample N]
+  main.py analyze --export-dir DIR [--export-csv] [--enrich] [--sample N]
   main.py unfollow (--export-dir DIR | --list FILE) [--dry-run] [--export-csv] [--sample N]
   main.py (-h | --help)
 
@@ -23,11 +23,11 @@ Options:
   -h --help         Show this screen.
 
 Examples:
-  # Analyse only (no login required)
-  python main.py analyse --export-dir ./instagram_export
+  # Analyze only (no login required)
+  python main.py analyze --export-dir ./instagram_export
 
   # Export non-followers to CSV
-  python main.py analyse --export-dir ./instagram_export --export-csv
+  python main.py analyze --export-dir ./instagram_export --export-csv
 
   # Interactively unfollow non-followers
   python main.py unfollow --export-dir ./instagram_export
@@ -39,7 +39,7 @@ Examples:
   python main.py unfollow --export-dir ./instagram_export --dry-run
 
   # Quick test on just 5 accounts
-  python main.py analyse --export-dir ./instagram_export --enrich --sample 5
+  python main.py analyze --export-dir ./instagram_export --enrich --sample 5
   python main.py unfollow --export-dir ./instagram_export --dry-run --sample 5
 """
 
@@ -64,10 +64,10 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Subcommand: analyse
+# Subcommand: analyze
 # ---------------------------------------------------------------------------
 
-def cmd_analyse(args: dict) -> None:
+def cmd_analyze(args: dict) -> None:
     print(f"Loading data from: {args['--export-dir']}")
     following = load_following(args['--export-dir'])
     followers = load_followers(args['--export-dir'])
@@ -194,8 +194,8 @@ def cmd_unfollow(args: dict) -> None:
 def main() -> None:
     args = docopt(__doc__)
 
-    if args['analyse']:
-        cmd_analyse(args)
+    if args['analyze']:
+        cmd_analyze(args)
     elif args['unfollow']:
         cmd_unfollow(args)
 
