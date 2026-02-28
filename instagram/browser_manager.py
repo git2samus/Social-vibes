@@ -15,6 +15,7 @@ For the unfollow flow the browser navigates to each profile and clicks
 
 import json
 import logging
+import os
 import random
 import time
 from datetime import datetime, timezone
@@ -36,13 +37,13 @@ BROWSER_PROFILE_DIR = Path("browser_profile")
 
 INSTAGRAM_URL = "https://www.instagram.com"
 
-# Conservative rate limits — same philosophy as the instagrapi manager.
-MIN_DELAY_SECONDS = 20
-MAX_DELAY_SECONDS = 45
-BATCH_SIZE = 10            # pause after every N unfollows
-BATCH_PAUSE_SECONDS = 300  # 5 minutes between batches
-ENRICH_MIN_DELAY_SECONDS = 3
-ENRICH_MAX_DELAY_SECONDS = 7
+# Conservative rate limits — configurable via environment variables.
+MIN_DELAY_SECONDS = int(os.getenv("UNFOLLOW_MIN_DELAY", "20"))
+MAX_DELAY_SECONDS = int(os.getenv("UNFOLLOW_MAX_DELAY", "45"))
+BATCH_SIZE = int(os.getenv("UNFOLLOW_BATCH_SIZE", "10"))
+BATCH_PAUSE_SECONDS = int(os.getenv("UNFOLLOW_BATCH_PAUSE", "300"))
+ENRICH_MIN_DELAY_SECONDS = int(os.getenv("ENRICH_MIN_DELAY", "3"))
+ENRICH_MAX_DELAY_SECONDS = int(os.getenv("ENRICH_MAX_DELAY", "7"))
 
 
 class BrowserManager:
