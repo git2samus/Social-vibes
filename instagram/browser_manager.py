@@ -134,9 +134,13 @@ class BrowserManager:
                 "Please log in to Instagram in the browser window that just opened.\n"
                 "Waiting up to 2 minutes for you to complete login..."
             )
-            # Wait until the login form disappears (user completed login).
-            login_input.wait_for(state="detached", timeout=120_000)
-            logger.debug("Login form detached. Waiting 2s for feed to settle.")
+            # Wait until Instagram makes a POST to /api/graphql (signals login success).
+            with page.expect_request(
+                lambda r: "/api/graphql" in r.url and r.method == "POST",
+                timeout=120_000,
+            ):
+                pass
+            logger.debug("POST /api/graphql detected. Waiting 2s for feed to settle.")
             # Give the feed a moment to fully settle.
             time.sleep(2)
             print("[Browser] Logged in successfully.")
