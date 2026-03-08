@@ -119,6 +119,13 @@ class BrowserManager:
         logger.debug("Home page loaded (domcontentloaded). Waiting 1.5s for React to render.")
         time.sleep(1.5)
 
+        use_another = page.locator("span", has_text="Use another profile")
+        if use_another.is_visible():
+            logger.debug('"Use another profile" button found — clicking it.')
+            use_another.click()
+            page.wait_for_load_state("domcontentloaded", timeout=30_000)
+            time.sleep(1.5)
+
         login_input = page.locator('input[name="email"]')
         if login_input.is_visible():
             logger.debug("Login form detected — session cookies not present or expired.")
