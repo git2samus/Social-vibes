@@ -21,6 +21,7 @@ unfollow accounts that don't follow you back.
 python3 -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+playwright install
 ```
 
 ### 2. Configure credentials (for unfollowing and `--enrich`)

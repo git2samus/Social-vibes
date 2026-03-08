@@ -6,8 +6,8 @@ Analyze your Instagram following/followers data and optionally unfollow
 accounts that don't follow you back.
 
 Usage:
-  main.py analyze --export-dir DIR [--export-csv] [--enrich] [--sample N]
-  main.py unfollow (--export-dir DIR | --list FILE) [--dry-run] [--export-csv] [--sample N]
+  main.py analyze --export-dir DIR [--export-csv] [--enrich] [--sample N] [--verbose]
+  main.py unfollow (--export-dir DIR | --list FILE) [--dry-run] [--export-csv] [--sample N] [--verbose]
   main.py (-h | --help)
 
 Options:
@@ -20,6 +20,8 @@ Options:
                     saved for future runs.
   --dry-run         Show what would be unfollowed without making any changes.
   --sample N        Only process the first N accounts (useful for quick tests).
+  --verbose         Enable verbose (DEBUG-level) logging for detailed output,
+                    including all Playwright browser interactions and timings.
   -h --help         Show this screen.
 
 Examples:
@@ -193,6 +195,10 @@ def cmd_unfollow(args: dict) -> None:
 
 def main() -> None:
     args = docopt(__doc__)
+
+    if args['--verbose']:
+        logging.getLogger().setLevel(logging.DEBUG)
+        logger.debug("Verbose logging enabled.")
 
     if args['analyze']:
         cmd_analyze(args)

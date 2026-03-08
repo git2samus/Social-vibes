@@ -74,6 +74,7 @@ class BrowserManager:
 
     def __enter__(self) -> "BrowserManager":
         BROWSER_PROFILE_DIR.mkdir(exist_ok=True)
+        logger.debug("Launching Chromium with persistent profile at: %s", BROWSER_PROFILE_DIR.resolve())
         self._playwright = sync_playwright().start()
         self._context = self._playwright.chromium.launch_persistent_context(
             user_data_dir=str(BROWSER_PROFILE_DIR),
@@ -84,11 +85,12 @@ class BrowserManager:
             ignore_default_args=["--enable-automation"],
         )
         # Reuse the first tab if the browser restored one; otherwise open new.
-        self._page = (
-            self._context.pages[0]
-            if self._context.pages
-            else self._context.new_page()
-        )
+        if self._context.pages:
+            logger.debug("Reusing existing browser tab (%d tab(s) open).", len(self._context.pages))
+            self._page = self._context.pages[0]
+        else:
+            logger.debug("No existing tabs — opening a new page.")
+            self._page = self._context.new_page()
         return self
 
     def __exit__(self, *_) -> None:
@@ -112,12 +114,14 @@ class BrowserManager:
         No credentials are ever passed to this script.
         """
         page = self._page
+        logger.debug("Navigating to Instagram home page.")
         page.goto(f"{INSTAGRAM_URL}/", wait_until="domcontentloaded", timeout=30_000)
-        # Let React finish rendering the initial view.
+        logger.debug("Home page loaded (domcontentloaded). Waiting 1.5s for React to render.")
         page.wait_for_timeout(1_500)
 
         login_input = page.query_selector('input[name="username"]')
         if login_input:
+            logger.debug("Login form detected — session cookies not present or expired.")
             print(
                 "\n[Browser] Instagram login required.\n"
                 "Please log in to Instagram in the browser window that just opened.\n"
@@ -129,9 +133,12 @@ class BrowserManager:
                 state="detached",
                 timeout=120_000,
             )
+            logger.debug("Login form detached. Waiting 2s for feed to settle.")
             # Give the feed a moment to fully settle.
             page.wait_for_timeout(2_000)
             print("[Browser] Logged in successfully.")
+        else:
+            logger.debug("No login form found — reusing saved session cookies.")
 
         self._ready = True
         logger.info("Browser session ready.")
@@ -162,6 +169,7 @@ class BrowserManager:
         """
         self._assert_ready()
         total = len(accounts)
+        logger.debug("Starting enrich loop for %d account(s).", total)
         for i, account in enumerate(accounts):
             if progress_callback:
                 progress_callback(account.username, i, total)
@@ -172,24 +180,32 @@ class BrowserManager:
 
             if i + 1 < total:
                 delay = random.uniform(ENRICH_MIN_DELAY_SECONDS, ENRICH_MAX_DELAY_SECONDS)
-                logger.debug("Waiting %.1fs before next profile.", delay)
+                logger.debug("Sleeping %.1fs before next profile (%d/%d done).", delay, i + 1, total)
                 time.sleep(delay)
 
     def _enrich_one(self, account: Account) -> None:
         page = self._page
         url = f"{INSTAGRAM_URL}/{account.username}/"
+        logger.debug("Enriching @%s — navigating to %s", account.username, url)
 
         # Set up response interception *before* triggering the navigation so
         # we never miss the response even on a fast connection.
         try:
+            logger.debug("Setting up web_profile_info response interceptor (timeout=15s).")
             with page.expect_response(
                 lambda r: "web_profile_info" in r.url,
                 timeout=15_000,
             ) as response_info:
                 page.goto(url, wait_until="domcontentloaded", timeout=30_000)
+                logger.debug("Page navigation complete for @%s.", account.username)
 
             response = response_info.value
+            logger.debug(
+                "Intercepted API response for @%s: %s (HTTP %d)",
+                account.username, response.url, response.status,
+            )
             if response.ok:
+                logger.debug("Parsing web_profile_info JSON for @%s.", account.username)
                 self._apply_profile_data(account, response.json())
             else:
                 logger.warning(
@@ -198,12 +214,12 @@ class BrowserManager:
                     account.username,
                 )
                 self._enrich_from_dom(account)
-        except Exception:
+        except Exception as exc:
             # Timeout waiting for the API response, or navigation error.
             # Try to extract what we can from the DOM.
             logger.debug(
-                "web_profile_info not captured for @%s — trying DOM fallback.",
-                account.username,
+                "web_profile_info not captured for @%s (%s) — trying DOM fallback.",
+                account.username, exc,
             )
             self._enrich_from_dom(account)
 
@@ -212,7 +228,7 @@ class BrowserManager:
         try:
             user = data["data"]["user"]
         except (KeyError, TypeError):
-            logger.debug("Unexpected JSON structure for @%s.", account.username)
+            logger.debug("Unexpected JSON structure for @%s — cannot parse user node.", account.username)
             return
 
         account.biography = user.get("biography") or ""
@@ -229,6 +245,14 @@ class BrowserManager:
             if ts:
                 account.last_post_at = datetime.fromtimestamp(ts, tz=timezone.utc)
 
+        logger.debug(
+            "Applied profile data for @%s: bio=%r is_business=%s last_post=%s",
+            account.username,
+            account.biography[:40] if account.biography else "",
+            account.is_business,
+            account.last_post_at,
+        )
+
     def _enrich_from_dom(self, account: Account) -> None:
         """
         Fallback: extract biography from the rendered page.
@@ -237,6 +261,7 @@ class BrowserManager:
         cannot reliably recover last_post_at, so it is only a last resort.
         """
         page = self._page
+        logger.debug("DOM fallback: scanning <script type=application/json> tags for @%s.", account.username)
 
         # Attempt to pull structured data from the script tags Instagram
         # embeds in the page (more stable than CSS-class-based selection).
@@ -251,16 +276,21 @@ class BrowserManager:
                 }"""
             )
             if raw:
+                logger.debug("Found script tag containing 'biography' for @%s (%d chars). Parsing.", account.username, len(raw))
                 blob = json.loads(raw)
                 # The structure varies; do a best-effort deep search.
                 bio = _deep_get(blob, "biography")
                 if bio is not None:
                     account.biography = bio
+                    logger.debug("DOM fallback: biography=%r for @%s.", bio[:40], account.username)
                 is_biz = _deep_get(blob, "is_business_account") or _deep_get(
                     blob, "is_professional_account"
                 )
                 if is_biz is not None:
                     account.is_business = bool(is_biz)
+                    logger.debug("DOM fallback: is_business=%s for @%s.", account.is_business, account.username)
+            else:
+                logger.debug("DOM fallback: no script tag with 'biography' found for @%s.", account.username)
         except Exception as e:
             logger.debug("DOM fallback failed for @%s: %s", account.username, e)
 
@@ -278,11 +308,10 @@ class BrowserManager:
         """
         self._assert_ready()
         page = self._page
-        page.goto(
-            f"{INSTAGRAM_URL}/{username}/",
-            wait_until="domcontentloaded",
-            timeout=30_000,
-        )
+        url = f"{INSTAGRAM_URL}/{username}/"
+        logger.debug("Unfollow: navigating to %s", url)
+        page.goto(url, wait_until="domcontentloaded", timeout=30_000)
+        logger.debug("Unfollow: page loaded for @%s. Waiting 1.5s for React to render.", username)
         page.wait_for_timeout(1_500)
 
         # Detect a "page not available" / deleted account message.
@@ -293,6 +322,7 @@ class BrowserManager:
             logger.warning("Skipped @%s — page not available.", username)
             return False
 
+        logger.debug("Unfollow: searching for 'Following' button on @%s profile.", username)
         following_btn = self._find_following_button()
         if following_btn is None:
             logger.warning(
@@ -302,28 +332,33 @@ class BrowserManager:
             )
             return False
 
+        logger.debug("Unfollow: clicking 'Following' button for @%s.", username)
         following_btn.click()
 
         # The confirmation dialog appears; click the "Unfollow" button in it.
         try:
+            logger.debug("Unfollow: waiting for confirmation dialog (timeout=6s).")
             confirm_btn = page.wait_for_selector(
                 'button:has-text("Unfollow")',
                 timeout=6_000,
             )
+            logger.debug("Unfollow: confirmation dialog appeared. Clicking 'Unfollow'.")
             confirm_btn.click()
-        except Exception:
+        except Exception as exc:
             logger.warning(
-                "Unfollow confirmation dialog did not appear for @%s.", username
+                "Unfollow confirmation dialog did not appear for @%s: %s", username, exc,
             )
             return False
 
         # Wait for the UI to reflect the unfollowed state.
         try:
+            logger.debug("Unfollow: waiting for 'Follow' button to confirm unfollow (timeout=10s).")
             page.wait_for_selector('button:has-text("Follow")', timeout=10_000)
+            logger.debug("Unfollow: 'Follow' button detected — unfollow confirmed for @%s.", username)
         except Exception:
             # The button text sometimes differs (e.g. "Follow Back") — we
             # still consider the action successful if no error was raised.
-            pass
+            logger.debug("Unfollow: 'Follow' button not detected for @%s (may have different label).", username)
 
         logger.info("Unfollowed @%s", username)
         return True
@@ -337,7 +372,12 @@ class BrowserManager:
         ]:
             el = page.query_selector(selector)
             if el and el.is_visible():
+                logger.debug("Found 'Following' button via selector: %r", selector)
                 return el
+            elif el:
+                logger.debug("Selector %r matched an element but it is not visible.", selector)
+            else:
+                logger.debug("Selector %r — no element found.", selector)
         return None
 
     def unfollow_batch(
@@ -399,7 +439,10 @@ class BrowserManager:
                 time.sleep(BATCH_PAUSE_SECONDS)
             else:
                 delay = random.uniform(MIN_DELAY_SECONDS, MAX_DELAY_SECONDS)
-                logger.debug("Waiting %.1fs before next unfollow.", delay)
+                logger.debug(
+                    "Sleeping %.1fs before next unfollow (%d/%d done).",
+                    delay, i + 1, total,
+                )
                 time.sleep(delay)
 
         return results
