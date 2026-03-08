@@ -119,7 +119,7 @@ class BrowserManager:
         logger.debug("Home page loaded (domcontentloaded). Waiting 1.5s for React to render.")
         time.sleep(1.5)
 
-        use_another = page.locator("span", has_text="Use another profile")
+        use_another = page.locator('div[aria-label="Use another profile"]')
         if use_another.is_visible():
             logger.debug('"Use another profile" button found — clicking it.')
             use_another.click()
