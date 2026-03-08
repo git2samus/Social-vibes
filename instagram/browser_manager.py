@@ -117,10 +117,10 @@ class BrowserManager:
         logger.debug("Navigating to Instagram home page.")
         page.goto(f"{INSTAGRAM_URL}/", wait_until="domcontentloaded", timeout=30_000)
         logger.debug("Home page loaded (domcontentloaded). Waiting 1.5s for React to render.")
-        page.wait_for_timeout(1_500)
+        time.sleep(1.5)
 
-        login_input = page.query_selector('input[name="username"]')
-        if login_input:
+        login_input = page.locator('input[name="username"]')
+        if login_input.is_visible():
             logger.debug("Login form detected — session cookies not present or expired.")
             print(
                 "\n[Browser] Instagram login required.\n"
@@ -128,14 +128,10 @@ class BrowserManager:
                 "Waiting up to 2 minutes for you to complete login..."
             )
             # Wait until the login form disappears (user completed login).
-            page.wait_for_selector(
-                'input[name="username"]',
-                state="detached",
-                timeout=120_000,
-            )
+            login_input.wait_for(state="detached", timeout=120_000)
             logger.debug("Login form detached. Waiting 2s for feed to settle.")
             # Give the feed a moment to fully settle.
-            page.wait_for_timeout(2_000)
+            time.sleep(2)
             print("[Browser] Logged in successfully.")
         else:
             logger.debug("No login form found — reusing saved session cookies.")
@@ -312,13 +308,10 @@ class BrowserManager:
         logger.debug("Unfollow: navigating to %s", url)
         page.goto(url, wait_until="domcontentloaded", timeout=30_000)
         logger.debug("Unfollow: page loaded for @%s. Waiting 1.5s for React to render.", username)
-        page.wait_for_timeout(1_500)
+        time.sleep(1.5)
 
         # Detect a "page not available" / deleted account message.
-        not_found = page.query_selector(
-            'text="Sorry, this page isn\'t available."'
-        )
-        if not_found:
+        if page.locator('text="Sorry, this page isn\'t available."').is_visible():
             logger.warning("Skipped @%s — page not available.", username)
             return False
 
@@ -338,10 +331,8 @@ class BrowserManager:
         # The confirmation dialog appears; click the "Unfollow" button in it.
         try:
             logger.debug("Unfollow: waiting for confirmation dialog (timeout=6s).")
-            confirm_btn = page.wait_for_selector(
-                'button:has-text("Unfollow")',
-                timeout=6_000,
-            )
+            confirm_btn = page.locator('button:has-text("Unfollow")')
+            confirm_btn.wait_for(timeout=6_000)
             logger.debug("Unfollow: confirmation dialog appeared. Clicking 'Unfollow'.")
             confirm_btn.click()
         except Exception as exc:
@@ -353,7 +344,7 @@ class BrowserManager:
         # Wait for the UI to reflect the unfollowed state.
         try:
             logger.debug("Unfollow: waiting for 'Follow' button to confirm unfollow (timeout=10s).")
-            page.wait_for_selector('button:has-text("Follow")', timeout=10_000)
+            page.locator('button:has-text("Follow")').wait_for(timeout=10_000)
             logger.debug("Unfollow: 'Follow' button detected — unfollow confirmed for @%s.", username)
         except Exception:
             # The button text sometimes differs (e.g. "Follow Back") — we
@@ -364,20 +355,18 @@ class BrowserManager:
         return True
 
     def _find_following_button(self):
-        """Return the visible 'Following' button element, or None."""
+        """Return the visible 'Following' button locator, or None."""
         page = self._page
         for selector in [
             'button:has-text("Following")',
             'button[aria-label="Following"]',
         ]:
-            el = page.query_selector(selector)
-            if el and el.is_visible():
+            el = page.locator(selector)
+            if el.is_visible():
                 logger.debug("Found 'Following' button via selector: %r", selector)
                 return el
-            elif el:
-                logger.debug("Selector %r matched an element but it is not visible.", selector)
             else:
-                logger.debug("Selector %r — no element found.", selector)
+                logger.debug("Selector %r — no visible element found.", selector)
         return None
 
     def unfollow_batch(
