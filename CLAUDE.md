@@ -9,6 +9,8 @@ Steps:
 1. Develop on a dedicated feature branch (e.g. `claude/<short-description>`).
 2. Commit with clear, descriptive messages.
 3. Push the branch with `git push -u origin <branch>`.
-4. Open a PR with `gh pr create` targeting `main`, with a short title and a summary
-   of what changed and why.
+4. Before opening a new PR, check if one already exists for the current branch:
+   - Run `gh pr list --head <branch-name> --state open` to see if a PR is still open.
+   - If an open PR exists, **reuse it** (no action needed — new commits pushed to the branch update it automatically).
+   - If no open PR exists (e.g. it was merged or closed), open a new one with `gh pr create`.
 5. Do **not** merge the PR yourself — leave that to the user.
