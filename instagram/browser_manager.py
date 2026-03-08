@@ -150,6 +150,45 @@ class BrowserManager:
         self._ready = True
         logger.info("Browser session ready.")
 
+    def logout(self) -> None:
+        """
+        Log out of Instagram if an active session is detected.
+
+        Navigates to Instagram home and checks whether the user is already
+        logged in.  If so, navigates to the logout URL so the subsequent
+        ``login()`` call will show the login form.  If there is no active
+        session this method is a no-op.
+        """
+        page = self._page
+        logger.debug("Navigating to Instagram home page for logout check.")
+        page.goto(f"{INSTAGRAM_URL}/", wait_until="domcontentloaded", timeout=30_000)
+        time.sleep(1.5)
+
+        use_another = page.locator('div[aria-label="Use another profile"]')
+        if use_another.is_visible():
+            logger.debug('"Use another profile" button found — clicking it.')
+            use_another.click()
+            page.wait_for_load_state("domcontentloaded", timeout=30_000)
+            time.sleep(1.5)
+
+        login_input = page.locator('input[name="email"]')
+        if login_input.is_visible():
+            logger.debug("No active session — logout is a no-op.")
+            print("[Browser] No active session — skipping logout.")
+            return
+
+        logger.debug("Active session detected — navigating to logout URL.")
+        print("[Browser] Active session found — logging out...")
+        page.goto(f"{INSTAGRAM_URL}/accounts/logout/", wait_until="domcontentloaded", timeout=30_000)
+        time.sleep(2)
+
+        if page.locator('input[name="email"]').is_visible():
+            logger.debug("Logout successful — login form is visible.")
+            print("[Browser] Logged out successfully.")
+        else:
+            logger.warning("Logout may not have completed — login form not detected.")
+            print("[Browser] Warning: logout may not have completed.")
+
     def _assert_ready(self) -> None:
         if not self._ready:
             raise RuntimeError("Not ready. Call login() first.")
