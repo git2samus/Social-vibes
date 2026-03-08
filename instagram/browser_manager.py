@@ -117,7 +117,7 @@ class BrowserManager:
         logger.debug("Navigating to Instagram home page.")
         page.goto(f"{INSTAGRAM_URL}/", wait_until="domcontentloaded", timeout=30_000)
         logger.debug("Home page loaded (domcontentloaded). Waiting 1.5s for React to render.")
-        page.wait_for_timeout(1_500)
+        time.sleep(1.5)
 
         login_input = page.locator('input[name="username"]')
         if login_input.is_visible():
@@ -131,7 +131,7 @@ class BrowserManager:
             login_input.wait_for(state="detached", timeout=120_000)
             logger.debug("Login form detached. Waiting 2s for feed to settle.")
             # Give the feed a moment to fully settle.
-            page.wait_for_timeout(2_000)
+            time.sleep(2)
             print("[Browser] Logged in successfully.")
         else:
             logger.debug("No login form found — reusing saved session cookies.")
@@ -308,7 +308,7 @@ class BrowserManager:
         logger.debug("Unfollow: navigating to %s", url)
         page.goto(url, wait_until="domcontentloaded", timeout=30_000)
         logger.debug("Unfollow: page loaded for @%s. Waiting 1.5s for React to render.", username)
-        page.wait_for_timeout(1_500)
+        time.sleep(1.5)
 
         # Detect a "page not available" / deleted account message.
         if page.locator('text="Sorry, this page isn\'t available."').is_visible():
