@@ -119,7 +119,7 @@ class BrowserManager:
         logger.debug("Home page loaded (domcontentloaded). Waiting 1.5s for React to render.")
         time.sleep(1.5)
 
-        login_input = page.locator('input[name="username"]')
+        login_input = page.locator('input[name="email"]')
         if login_input.is_visible():
             logger.debug("Login form detected — session cookies not present or expired.")
             print(
