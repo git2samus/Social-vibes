@@ -6,8 +6,8 @@ Analyze your Instagram following/followers data and optionally unfollow
 accounts that don't follow you back.
 
 Usage:
-  main.py analyze --export-dir DIR [--export-csv] [--enrich] [--sample N] [--verbose]
-  main.py unfollow (--export-dir DIR | --list FILE) [--dry-run] [--export-csv] [--sample N] [--verbose]
+  main.py analyze --export-dir DIR [--export-csv] [--enrich] [--logout] [--sample N] [--verbose]
+  main.py unfollow (--export-dir DIR | --list FILE) [--dry-run] [--export-csv] [--logout] [--sample N] [--verbose]
   main.py (-h | --help)
 
 Options:
@@ -18,6 +18,9 @@ Options:
                     for everyone you follow by opening a real browser session.
                     A Chromium window will open; log in once and the session is
                     saved for future runs.
+  --logout          Before the browser session starts, check for an active
+                    Instagram session and log it out so you can sign in as a
+                    different account.  Has no effect when no session exists.
   --dry-run         Show what would be unfollowed without making any changes.
   --sample N        Only process the first N accounts (useful for quick tests).
   --verbose         Enable verbose (DEBUG-level) logging for detailed output,
@@ -43,6 +46,9 @@ Examples:
   # Quick test on just 5 accounts
   python main.py analyze --export-dir ./instagram_export --enrich --sample 5
   python main.py unfollow --export-dir ./instagram_export --dry-run --sample 5
+
+  # Switch Instagram account before running
+  python main.py unfollow --export-dir ./instagram_export --logout
 """
 
 import logging
@@ -98,6 +104,8 @@ def cmd_analyze(args: dict) -> None:
 
         print("Opening browser...")
         with BrowserManager() as manager:
+            if args['--logout']:
+                manager.logout()
             manager.login()
             manager.enrich_accounts(enrich_target, progress_callback=enrich_progress)
         print()
@@ -174,6 +182,8 @@ def cmd_unfollow(args: dict) -> None:
 
     print("Opening browser...")
     with BrowserManager() as manager:
+        if args['--logout']:
+            manager.logout()
         manager.login()
         print(f"\nUnfollowing {len(usernames)} account(s)...\n")
         results = manager.unfollow_batch(usernames, dry_run=False, progress_callback=progress)

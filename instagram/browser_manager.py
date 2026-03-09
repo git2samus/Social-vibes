@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 BROWSER_PROFILE_DIR = Path("browser_profile")
 
 INSTAGRAM_URL = "https://www.instagram.com"
+_LOGIN_FORM_SELECTOR = 'input[name="email"]'
 
 # Conservative rate limits — configurable via environment variables.
 MIN_DELAY_SECONDS = int(os.getenv("UNFOLLOW_MIN_DELAY", "20"))
@@ -103,15 +104,12 @@ class BrowserManager:
     # Login / session check
     # ------------------------------------------------------------------
 
-    def login(self) -> None:
+    def _navigate_home(self) -> bool:
         """
-        Navigate to Instagram and verify the session is active.
+        Navigate to Instagram home and dismiss the profile-switcher if present.
 
-        If the saved profile already contains valid cookies the feed loads
-        immediately and this method returns straight away.  If not, the
-        login form will be visible in the browser window and the method
-        waits (up to 2 minutes) for the user to complete it manually.
-        No credentials are ever passed to this script.
+        Returns True when the login form is visible (no active session),
+        False when a session is already loaded.
         """
         page = self._page
         logger.debug("Navigating to Instagram home page.")
@@ -126,8 +124,20 @@ class BrowserManager:
             page.wait_for_load_state("domcontentloaded", timeout=30_000)
             time.sleep(1.5)
 
-        login_input = page.locator('input[name="email"]')
-        if login_input.is_visible():
+        return page.locator(_LOGIN_FORM_SELECTOR).is_visible()
+
+    def login(self) -> None:
+        """
+        Navigate to Instagram and verify the session is active.
+
+        If the saved profile already contains valid cookies the feed loads
+        immediately and this method returns straight away.  If not, the
+        login form will be visible in the browser window and the method
+        waits (up to 2 minutes) for the user to complete it manually.
+        No credentials are ever passed to this script.
+        """
+        needs_login = self._navigate_home()
+        if needs_login:
             logger.debug("Login form detected — session cookies not present or expired.")
             print(
                 "\n[Browser] Instagram login required.\n"
@@ -135,7 +145,7 @@ class BrowserManager:
                 "Waiting up to 2 minutes for you to complete login..."
             )
             # Wait until Instagram makes a POST to /api/graphql (signals login success).
-            with page.expect_request(
+            with self._page.expect_request(
                 lambda r: "/api/graphql" in r.url and r.method == "POST",
                 timeout=120_000,
             ):
@@ -149,6 +159,33 @@ class BrowserManager:
 
         self._ready = True
         logger.info("Browser session ready.")
+
+    def logout(self) -> None:
+        """
+        Log out of Instagram if an active session is detected.
+
+        Navigates to Instagram home and checks whether the user is already
+        logged in.  If so, navigates to the logout URL so the subsequent
+        ``login()`` call will show the login form.  If there is no active
+        session this method is a no-op.
+        """
+        no_session = self._navigate_home()
+        if no_session:
+            logger.debug("No active session — logout is a no-op.")
+            print("[Browser] No active session — skipping logout.")
+            return
+
+        logger.debug("Active session detected — navigating to logout URL.")
+        print("[Browser] Active session found — logging out...")
+        self._page.goto(f"{INSTAGRAM_URL}/accounts/logout/", wait_until="domcontentloaded", timeout=30_000)
+        time.sleep(2)
+
+        if self._navigate_home():
+            logger.debug("Logout successful — login form is visible.")
+            print("[Browser] Logged out successfully.")
+        else:
+            logger.warning("Logout may not have completed — login form not detected.")
+            print("[Browser] Warning: logout may not have completed.")
 
     def _assert_ready(self) -> None:
         if not self._ready:
