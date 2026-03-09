@@ -5,11 +5,7 @@ unfollow accounts that don't follow you back.
 
 **Data sources used:**
 - **Analysis** — your Instagram data export (JSON files, no API key needed)
-- **Unfollowing** — [instagrapi](https://github.com/subzeroid/instagrapi) (unofficial Instagram private API)
-
-> **Note:** Using the unofficial API violates Instagram's Terms of Service.
-> Use conservatively and at your own risk. The built-in rate limiting reduces
-> (but does not eliminate) the risk of triggering bot detection.
+- **Unfollowing** — [Playwright](https://playwright.dev/) browser automation (headless Chrome)
 
 ---
 
@@ -114,7 +110,7 @@ python3 main.py unfollow --list my_unfollow_list.txt
 **Enriching** (`--enrich`) uses lighter delays for read-only profile fetches:
 - **2–5 seconds** between individual profile lookups (`ENRICH_MIN_DELAY_SECONDS`, `ENRICH_MAX_DELAY_SECONDS`)
 
-All constants can be tuned at the top of `instagram/manager.py`.
+All constants can be tuned at the top of `instagram/browser_manager.py`.
 
 ---
 
@@ -127,7 +123,7 @@ Social-vibes/
 ├── .env.example             # Credentials template
 ├── instagram/
 │   ├── parser.py            # Parse Instagram data export JSON
-│   ├── manager.py           # instagrapi login + unfollow actions
+│   ├── browser_manager.py   # Playwright login, enrich, and unfollow actions
 │   └── reporter.py          # CSV export and summary printing
 ├── .claude/
 │   ├── settings.json        # Claude Code hooks configuration
