@@ -64,6 +64,9 @@ account you follow. Requires Instagram credentials.
 ```bash
 python3 main.py analyze --export-dir ./instagram_export --enrich
 
+# Enrich only specific accounts from a file (one username per line)
+python3 main.py analyze --export-dir ./instagram_export --enrich --list accounts.txt
+
 # Quick test on just 5 accounts
 python3 main.py analyze --export-dir ./instagram_export --enrich --sample 5
 
