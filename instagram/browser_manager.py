@@ -180,7 +180,7 @@ class BrowserManager:
         self._page.goto(f"{INSTAGRAM_URL}/accounts/logout/", wait_until="domcontentloaded", timeout=30_000)
         time.sleep(2)
 
-        if self._page.locator(_LOGIN_FORM_SELECTOR).is_visible():
+        if self._navigate_home():
             logger.debug("Logout successful — login form is visible.")
             print("[Browser] Logged out successfully.")
         else:
