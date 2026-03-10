@@ -76,6 +76,20 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def _load_usernames_file(file_arg: str) -> list[str]:
+    """Parse a username list file (one per line, # comments, leading @ stripped)."""
+    path = Path(file_arg)
+    try:
+        text = path.read_text()
+    except FileNotFoundError:
+        sys.exit(f"Error: file not found: {path}")
+    return [
+        line.strip().lstrip("@")
+        for line in text.splitlines()
+        if line.strip() and not line.startswith("#")
+    ]
+
+
 # ---------------------------------------------------------------------------
 # Subcommand: analyze
 # ---------------------------------------------------------------------------
@@ -98,16 +112,9 @@ def cmd_analyze(args: dict) -> None:
 
         enrich_target = following
         if args['--list']:
-            list_path = Path(args['--list'])
-            if not list_path.exists():
-                sys.exit(f"Error: file not found: {list_path}")
-            usernames = {
-                line.strip().lstrip("@")
-                for line in list_path.read_text().splitlines()
-                if line.strip() and not line.startswith("#")
-            }
+            usernames = set(_load_usernames_file(args['--list']))
             enrich_target = [a for a in enrich_target if a.username in usernames]
-            print(f"(Restricted to {len(enrich_target)} account(s) from {list_path})")
+            print(f"(Restricted to {len(enrich_target)} account(s) from {args['--list']})")
         elif args['--sample']:
             n = int(args['--sample'])
             enrich_target = enrich_target[:n]
@@ -142,14 +149,7 @@ def cmd_analyze(args: dict) -> None:
 def cmd_unfollow(args: dict) -> None:
     # Build the target list
     if args['--list']:
-        list_path = Path(args['--list'])
-        if not list_path.exists():
-            sys.exit(f"Error: file not found: {list_path}")
-        usernames = [
-            line.strip().lstrip("@")
-            for line in list_path.read_text().splitlines()
-            if line.strip() and not line.startswith("#")
-        ]
+        usernames = _load_usernames_file(args['--list'])
     elif args['--export-dir']:
         print(f"Loading data from: {args['--export-dir']}")
         following = load_following(args['--export-dir'])
