@@ -6,13 +6,15 @@ Analyze your Instagram following/followers data and optionally unfollow
 accounts that don't follow you back.
 
 Usage:
-  main.py analyze --export-dir DIR [--export-csv] [--enrich] [--logout] [--sample N] [--verbose]
+  main.py analyze --export-dir DIR [--export-csv] [--enrich] [--logout] [--list FILE | --sample N] [--verbose]
   main.py unfollow (--export-dir DIR | --list FILE) [--dry-run] [--export-csv] [--logout] [--sample N] [--verbose]
   main.py (-h | --help)
 
 Options:
   --export-dir DIR  Path to your Instagram data export directory.
-  --list FILE       Text file with one username per line to unfollow.
+  --list FILE       Text file with one username per line.
+                    For analyze: restrict enrichment to those accounts.
+                    For unfollow: use as the target list instead of the export.
   --export-csv      Save results to CSV files in the reports/ directory.
   --enrich          Fetch extra profile data (bio, is_business, last post date)
                     for everyone you follow by opening a real browser session.
@@ -47,6 +49,9 @@ Examples:
   python main.py analyze --export-dir ./instagram_export --enrich --sample 5
   python main.py unfollow --export-dir ./instagram_export --dry-run --sample 5
 
+  # Enrich specific accounts from a file
+  python main.py analyze --export-dir ./instagram_export --enrich --list accounts.txt
+
   # Switch Instagram account before running
   python main.py unfollow --export-dir ./instagram_export --logout
 """
@@ -71,6 +76,20 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def _load_usernames_file(file_arg: str) -> list[str]:
+    """Parse a username list file (one per line, # comments, leading @ stripped)."""
+    path = Path(file_arg)
+    try:
+        text = path.read_text()
+    except FileNotFoundError:
+        sys.exit(f"Error: file not found: {path}")
+    return [
+        line.strip().lstrip("@")
+        for line in text.splitlines()
+        if line.strip() and not line.startswith("#")
+    ]
+
+
 # ---------------------------------------------------------------------------
 # Subcommand: analyze
 # ---------------------------------------------------------------------------
@@ -92,7 +111,11 @@ def cmd_analyze(args: dict) -> None:
         from instagram.browser_manager import BrowserManager
 
         enrich_target = following
-        if args['--sample']:
+        if args['--list']:
+            usernames = set(_load_usernames_file(args['--list']))
+            enrich_target = [a for a in enrich_target if a.username in usernames]
+            print(f"(Restricted to {len(enrich_target)} account(s) from {args['--list']})")
+        elif args['--sample']:
             n = int(args['--sample'])
             enrich_target = enrich_target[:n]
             print(f"(Sampling first {n} following accounts)")
@@ -126,14 +149,7 @@ def cmd_analyze(args: dict) -> None:
 def cmd_unfollow(args: dict) -> None:
     # Build the target list
     if args['--list']:
-        list_path = Path(args['--list'])
-        if not list_path.exists():
-            sys.exit(f"Error: file not found: {list_path}")
-        usernames = [
-            line.strip().lstrip("@")
-            for line in list_path.read_text().splitlines()
-            if line.strip() and not line.startswith("#")
-        ]
+        usernames = _load_usernames_file(args['--list'])
     elif args['--export-dir']:
         print(f"Loading data from: {args['--export-dir']}")
         following = load_following(args['--export-dir'])
