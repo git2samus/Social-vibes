@@ -17,6 +17,7 @@ import json
 import logging
 import os
 import random
+import re
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -301,40 +302,37 @@ class BrowserManager:
         """
         Fallback: extract biography from the rendered page.
 
+        Reads the <meta name="description"> tag whose content attribute has
+        the format:
+            {N} Followers, {M} Following, {P} Posts - {Name} (@handle)
+            on Instagram: "{bio}"
+        The biography is the text between the last pair of double-quotes.
+
         This is inherently fragile (Instagram's DOM structure changes) and
         cannot reliably recover last_post_at, so it is only a last resort.
         """
         page = self._page
-        logger.debug("DOM fallback: scanning <script type=application/json> tags for @%s.", account.username)
+        logger.debug("DOM fallback: reading <meta name=description> for @%s.", account.username)
 
-        # Attempt to pull structured data from the script tags Instagram
-        # embeds in the page (more stable than CSS-class-based selection).
         try:
-            raw = page.evaluate(
+            content = page.evaluate(
                 """() => {
-                    for (const el of document.querySelectorAll('script[type="application/json"]')) {
-                        const txt = el.textContent;
-                        if (txt.includes('biography')) return txt;
-                    }
-                    return null;
+                    const el = document.querySelector('meta[name="description"]');
+                    return el ? el.getAttribute("content") : null;
                 }"""
             )
-            if raw:
-                logger.debug("Found script tag containing 'biography' for @%s (%d chars). Parsing.", account.username, len(raw))
-                blob = json.loads(raw)
-                # The structure varies; do a best-effort deep search.
-                bio = _deep_get(blob, "biography")
-                if bio is not None:
-                    account.biography = bio
-                    logger.debug("DOM fallback: biography=%r for @%s.", bio[:40], account.username)
-                is_biz = _deep_get(blob, "is_business_account") or _deep_get(
-                    blob, "is_professional_account"
-                )
-                if is_biz is not None:
-                    account.is_business = bool(is_biz)
-                    logger.debug("DOM fallback: is_business=%s for @%s.", account.is_business, account.username)
+            if content:
+                logger.debug("DOM fallback: meta description=%r for @%s.", content[:80], account.username)
+                # Extract the bio from between the last pair of double-quotes.
+                # Format: "… on Instagram: "{bio}""
+                m = re.search(r'"([^"]*)"$', content)
+                if m:
+                    account.biography = m.group(1)
+                    logger.debug("DOM fallback: biography=%r for @%s.", account.biography[:40], account.username)
+                else:
+                    logger.debug("DOM fallback: could not parse bio from meta description for @%s.", account.username)
             else:
-                logger.debug("DOM fallback: no script tag with 'biography' found for @%s.", account.username)
+                logger.debug("DOM fallback: <meta name=description> not found for @%s.", account.username)
         except Exception as e:
             logger.debug("DOM fallback failed for @%s: %s", account.username, e)
 
