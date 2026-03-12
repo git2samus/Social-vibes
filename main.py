@@ -64,7 +64,7 @@ from docopt import docopt
 from dotenv import load_dotenv
 
 from instagram.parser import load_following, load_followers, compute_non_followers
-from instagram.reporter import export_csv, export_unfollow_results, print_summary
+from instagram.reporter import export_csv, export_unfollow_results, print_accounts_table, print_summary
 
 load_dotenv()
 
@@ -102,11 +102,7 @@ def cmd_analyze(args: dict) -> None:
 
     print_summary(following, followers, non_followers)
 
-    if non_followers:
-        print("Accounts you follow that don't follow back:")
-        for i, account in enumerate(non_followers, 1):
-            print(f"  {i:3}. @{account.username}")
-
+    enrich_target = None
     if args['--enrich'] and following:
         from instagram.browser_manager import BrowserManager
 
@@ -140,6 +136,10 @@ def cmd_analyze(args: dict) -> None:
         print(f"\nFull following list saved to: {path}")
         path = export_csv(non_followers, f"non_followers_{ts}.csv")
         print(f"Non-followers list saved to:  {path}")
+    else:
+        if enrich_target:
+            print_accounts_table(enrich_target, title=f"Following — enriched ({len(enrich_target)}):")
+        print_accounts_table(non_followers, title="Accounts you follow that don't follow back:")
 
 
 # ---------------------------------------------------------------------------
