@@ -12,6 +12,34 @@ from pathlib import Path
 from .parser import Account
 
 
+def print_accounts_table(
+    accounts: list[Account],
+    title: str | None = None,
+) -> None:
+    """Print a human-readable table of accounts to stdout."""
+    if title:
+        print(title)
+    if not accounts:
+        print("  (none)")
+        print()
+        return
+
+    for i, a in enumerate(accounts, 1):
+        extras = []
+        if a.followed_at:
+            extras.append(f"followed {a.followed_at.strftime('%Y-%m-%d')}")
+        if a.last_post_at:
+            extras.append(f"last post {a.last_post_at.strftime('%Y-%m-%d')}")
+        if a.is_business is not None:
+            extras.append("business" if a.is_business else "personal")
+        suffix = "  —  " + "  ·  ".join(extras) if extras else ""
+        print(f"  {i:3}. @{a.username}{suffix}")
+        if a.biography:
+            bio = a.biography[:80] + "…" if len(a.biography) > 80 else a.biography
+            print(f'       "{bio}"')
+    print()
+
+
 def _ensure_reports_dir(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
