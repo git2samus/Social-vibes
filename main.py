@@ -194,7 +194,7 @@ def cmd_unfollow(args: dict) -> None:
 
     def progress(uname, status, idx, total):
         icon = {"ok": "✓", "not_found": "?", "error": "✗", "dry_run": "~"}.get(status, " ")
-        print(f"  [{idx+1}/{total}] {icon} @{uname} — {status}")
+        print(f"  [{idx + 1}/{total}] {icon} @{uname} — {status}")
 
     print("Opening browser...")
     with BrowserManager() as manager:

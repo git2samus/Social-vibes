@@ -5,7 +5,6 @@ Generate CSV reports from parsed Instagram data.
 import csv
 import functools
 import inspect
-import os
 from datetime import datetime
 from pathlib import Path
 
@@ -80,7 +79,7 @@ def export_csv(
     Returns:
         Path to the written CSV file.
     """
-    path = output_dir / filename
+    path = Path(output_dir) / filename
 
     with open(path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=_ACCOUNT_FIELDS)
@@ -116,7 +115,7 @@ def export_unfollow_results(
         Path to the written CSV file.
     """
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    path = output_dir / f"unfollow_results_{timestamp}.csv"
+    path = Path(output_dir) / f"unfollow_results_{timestamp}.csv"
 
     with open(path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=["username", "status"])

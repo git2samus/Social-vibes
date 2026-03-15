@@ -13,7 +13,6 @@ For the unfollow flow the browser navigates to each profile and clicks
 "Following" → "Unfollow" exactly as a human would.
 """
 
-import json
 import logging
 import os
 import random
@@ -26,6 +25,7 @@ from playwright.sync_api import (
     BrowserContext,
     Page,
     Playwright,
+    ViewportSize,
     sync_playwright,
 )
 
@@ -81,7 +81,7 @@ class BrowserManager:
         self._context = self._playwright.chromium.launch_persistent_context(
             user_data_dir=str(BROWSER_PROFILE_DIR),
             headless=False,
-            viewport={"width": 1280, "height": 900},
+            viewport=ViewportSize(width=1280, height=900),
             # Mimic a regular desktop Chrome to reduce fingerprint signals.
             args=["--disable-blink-features=AutomationControlled"],
             ignore_default_args=["--enable-automation"],
@@ -101,6 +101,11 @@ class BrowserManager:
         if self._playwright:
             self._playwright.stop()
 
+    @property
+    def page(self) -> Page:
+        assert self._page
+        return self._page
+
     # ------------------------------------------------------------------
     # Login / session check
     # ------------------------------------------------------------------
@@ -112,20 +117,19 @@ class BrowserManager:
         Returns True when the login form is visible (no active session),
         False when a session is already loaded.
         """
-        page = self._page
         logger.debug("Navigating to Instagram home page.")
-        page.goto(f"{INSTAGRAM_URL}/", wait_until="domcontentloaded", timeout=30_000)
+        self.page.goto(f"{INSTAGRAM_URL}/", wait_until="domcontentloaded", timeout=30_000)
         logger.debug("Home page loaded (domcontentloaded). Waiting 1.5s for React to render.")
         time.sleep(1.5)
 
-        use_another = page.locator('div[aria-label="Use another profile"]')
+        use_another = self.page.locator('div[aria-label="Use another profile"]')
         if use_another.is_visible():
             logger.debug('"Use another profile" button found — clicking it.')
             use_another.click()
-            page.wait_for_load_state("domcontentloaded", timeout=30_000)
+            self.page.wait_for_load_state("domcontentloaded", timeout=30_000)
             time.sleep(1.5)
 
-        return page.locator(_LOGIN_FORM_SELECTOR).is_visible()
+        return self.page.locator(_LOGIN_FORM_SELECTOR).is_visible()
 
     def login(self) -> None:
         """
@@ -146,7 +150,7 @@ class BrowserManager:
                 "Waiting up to 2 minutes for you to complete login..."
             )
             # Wait until Instagram makes a POST to /api/graphql (signals login success).
-            with self._page.expect_request(
+            with self.page.expect_request(
                 lambda r: "/api/graphql" in r.url and r.method == "POST",
                 timeout=120_000,
             ):
@@ -178,7 +182,7 @@ class BrowserManager:
 
         logger.debug("Active session detected — navigating to logout URL.")
         print("[Browser] Active session found — logging out...")
-        self._page.goto(f"{INSTAGRAM_URL}/accounts/logout/", wait_until="domcontentloaded", timeout=30_000)
+        self.page.goto(f"{INSTAGRAM_URL}/accounts/logout/", wait_until="domcontentloaded", timeout=30_000)
         time.sleep(2)
 
         if self._navigate_home():
@@ -229,7 +233,6 @@ class BrowserManager:
                 time.sleep(delay)
 
     def _enrich_one(self, account: Account) -> None:
-        page = self._page
         url = f"{INSTAGRAM_URL}/{account.username}/"
         logger.debug("Enriching @%s — navigating to %s", account.username, url)
 
@@ -237,11 +240,11 @@ class BrowserManager:
         # we never miss the response even on a fast connection.
         try:
             logger.debug("Setting up web_profile_info response interceptor (timeout=15s).")
-            with page.expect_response(
+            with self.page.expect_response(
                 lambda r: "web_profile_info" in r.url,
                 timeout=15_000,
             ) as response_info:
-                page.goto(url, wait_until="domcontentloaded", timeout=30_000)
+                self.page.goto(url, wait_until="domcontentloaded", timeout=30_000)
                 logger.debug("Page navigation complete for @%s.", account.username)
 
             response = response_info.value
@@ -311,11 +314,10 @@ class BrowserManager:
         This is inherently fragile (Instagram's DOM structure changes) and
         cannot reliably recover last_post_at, so it is only a last resort.
         """
-        page = self._page
         logger.debug("DOM fallback: reading <meta name=description> for @%s.", account.username)
 
         try:
-            content = page.evaluate(
+            content = self.page.evaluate(
                 """() => {
                     const el = document.querySelector('meta[name="description"]');
                     return el ? el.getAttribute("content") : null;
@@ -349,15 +351,15 @@ class BrowserManager:
         the "Following" button was not present.
         """
         self._assert_ready()
-        page = self._page
+
         url = f"{INSTAGRAM_URL}/{username}/"
         logger.debug("Unfollow: navigating to %s", url)
-        page.goto(url, wait_until="domcontentloaded", timeout=30_000)
+        self.page.goto(url, wait_until="domcontentloaded", timeout=30_000)
         logger.debug("Unfollow: page loaded for @%s. Waiting 1.5s for React to render.", username)
         time.sleep(1.5)
 
         # Detect a "page not available" / deleted account message.
-        if page.locator('text="Sorry, this page isn\'t available."').is_visible():
+        if self.page.locator('text="Sorry, this page isn\'t available."').is_visible():
             logger.warning("Skipped @%s — page not available.", username)
             return False
 
@@ -377,7 +379,7 @@ class BrowserManager:
         # The confirmation dialog appears; click the "Unfollow" button in it.
         try:
             logger.debug("Unfollow: waiting for confirmation dialog (timeout=6s).")
-            confirm_btn = page.locator('button:has-text("Unfollow")')
+            confirm_btn = self.page.locator('button:has-text("Unfollow")')
             confirm_btn.wait_for(timeout=6_000)
             logger.debug("Unfollow: confirmation dialog appeared. Clicking 'Unfollow'.")
             confirm_btn.click()
@@ -390,7 +392,7 @@ class BrowserManager:
         # Wait for the UI to reflect the unfollowed state.
         try:
             logger.debug("Unfollow: waiting for 'Follow' button to confirm unfollow (timeout=10s).")
-            page.locator('button:has-text("Follow")').wait_for(timeout=10_000)
+            self.page.locator('button:has-text("Follow")').wait_for(timeout=10_000)
             logger.debug("Unfollow: 'Follow' button detected — unfollow confirmed for @%s.", username)
         except Exception:
             # The button text sometimes differs (e.g. "Follow Back") — we
@@ -402,12 +404,11 @@ class BrowserManager:
 
     def _find_following_button(self):
         """Return the visible 'Following' button locator, or None."""
-        page = self._page
         for selector in [
             'button:has-text("Following")',
             'button[aria-label="Following"]',
         ]:
-            el = page.locator(selector)
+            el = self.page.locator(selector)
             if el.is_visible():
                 logger.debug("Found 'Following' button via selector: %r", selector)
                 return el

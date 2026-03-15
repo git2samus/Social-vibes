@@ -11,7 +11,6 @@ The relevant files are in:
 """
 
 import json
-import os
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
