@@ -123,6 +123,6 @@ def load_followers(export_dir: str | Path) -> list[Account]:
 
 
 def compute_non_followers(following: list[Account], followers: list[Account]) -> list[Account]:
-    """Return accounts you follow that do not follow you back."""
-    follower_usernames = {a.username.lower() for a in followers}
-    return [a for a in following if a.username.lower() not in follower_usernames]
+    """Return accounts that follow you but you don't follow back."""
+    following_usernames = {a.username.lower() for a in following}
+    return [a for a in followers if a.username.lower() not in following_usernames]

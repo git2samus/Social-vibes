@@ -139,6 +139,6 @@ def print_summary(
     print("=" * 40)
     print(f"  Following:       {len(following):>6}")
     print(f"  Followers:       {len(followers):>6}")
-    print(f"  Not following back: {len(non_followers):>3}")
+    print(f"  Not followed back:  {len(non_followers):>3}")
     print("=" * 40)
     print()
