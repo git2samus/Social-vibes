@@ -139,7 +139,7 @@ def cmd_analyze(args: dict) -> None:
     else:
         if enrich_target:
             print_accounts_table(enrich_target, title=f"Following — enriched ({len(enrich_target)}):")
-        print_accounts_table(non_followers, title="Accounts you follow that don't follow back:")
+        print_accounts_table(non_followers, title="Followers you don't follow back:")
 
 
 # ---------------------------------------------------------------------------
@@ -158,10 +158,10 @@ def cmd_unfollow(args: dict) -> None:
         print_summary(following, followers, non_followers)
 
         if not non_followers:
-            print("Everyone you follow also follows you back. Nothing to do.")
+            print("You follow back everyone who follows you. Nothing to do.")
             return
 
-        print(f"Found {len(non_followers)} account(s) that don't follow you back.")
+        print(f"Found {len(non_followers)} account(s) that follow you but you don't follow back.")
         usernames = [a.username for a in non_followers]
     else:
         sys.exit("Error: provide --export-dir or --list.")
